@@ -1,18 +1,15 @@
+#![windows_subsystem = "windows"]
+
 use system_shutdown::force_reboot;
 use std::net::{TcpListener, TcpStream};
 use std::io::{BufRead, BufReader};
 
-const REBOOT_CODE: &str = "<SECRET>";
-
-fn reboot() {
-    match force_reboot() {
-        Ok(_) => println!("Rebooting..."),
-        Err(_) => println!("Failed to reboot")
-    }
-}
+const PORT: u16 = 64321;
 
 fn handle_client(stream: TcpStream) {
     let mut reader = BufReader::new(stream);
+
+    let secret = std::env::args().nth(1).expect("Failed to get secret");
     loop {
         let mut text = String::new();
         match reader.read_line(&mut text) {
@@ -21,8 +18,8 @@ fn handle_client(stream: TcpStream) {
                     break;
                 }
 
-                if text == REBOOT_CODE {
-                    reboot();
+                if text.contains(&secret) {
+                    force_reboot().expect("Failed to reboot");
                 }
             },
             Err(_) => break
@@ -31,9 +28,7 @@ fn handle_client(stream: TcpStream) {
 }
 
 fn main() {
-    println!("Starting reboot server listener");
-
-    let listener = TcpListener::bind("0.0.0.0:64321").expect("Failed to bind to TCP port");
+    let listener = TcpListener::bind(("0.0.0.0", PORT)).expect("Failed to bind to TCP port");
 
     for stream in listener.incoming() {
         std::thread::spawn(move || {
